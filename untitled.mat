@@ -1,0 +1,101 @@
+%%%%%%%%%% kidney stone detection project %%%%%%%%%%
+
+% clean up and get environment ready %
+clc
+clear all 
+close all 
+warning off
+
+% prompt the user to select image file from any type and take it as input %
+[filename,pathname]=uigetfile('.','Pick an Image file');  % user interface
+filename=strcat(pathname,filename); 
+
+% read the input image & show it with details %
+image1=imread(filename);
+figure('Name','Original Image'), imshow(image1);
+impixelinfo
+image1_type = imfinfo(filename).ColorType
+
+% convert image to grayscale %
+image1_gray=rgb2gray(image1); %to apply mask in gray scale%
+figure('Name','Converted Gray Image'), imshow(image1_gray);
+impixelinfo;
+
+figure, imhist(image1_gray) %check histogram to check if we can apply global thresholding or not%
+
+%thresholding  grayscale image to create a binary image 
+%using a suitable threshold value
+%value of 20
+
+c=image1_gray>20;       % any pixel greater than 20 is going to be 1%
+figure('Name','Image after Threshold');
+imshow(c);
+impixelinfo
+
+d=imfill(c,'holes');    %fill holes in region of interest%
+figure('Name','Filled Holes Image');
+imshow(d);
+
+% remove all connected components (objects) that have fewer than P pixels from the binary image , producing another binary image
+e=bwareaopen(d,1000); % area opening
+figure('Name','Image after removing unnessesary objects');
+imshow(e); % this is our binary mask filter
+
+% Multiplies the original image with the binary mask to remove irrelevant areas. 
+PreprocessedImage=uint8(double(image1).*repmat(e,[1 1 3]));
+figure('Name','Preprocessed Image');
+imshow(PreprocessedImage);
+
+%make dark region darker and the same with white parts
+%image enhancement
+% below 0.3 will be zero
+% greater 0.7 will be 1
+PreprocessedImage=imadjust(PreprocessedImage,[0.3 0.7],[])+50;%+50 to make it more precise
+figure('Name','more precised Image');
+imshow(PreprocessedImage); % RGB image
+impixelinfo
+uo=rgb2gray(PreprocessedImage); % Gray image
+figure('Name','PreprocessedImage');
+imshow(uo);
+
+%Apply  median filter 
+mo=medfilt2(uo,[5 5]);
+figure;
+imshow(mo);
+impixelinfo;
+
+%we find that the part we intersted in has very high intenisty which ranges
+%from 250 to 255
+%convert to binary image %
+po=mo>250;
+figure('Name','Region of interst');
+imshow(po);
+
+% To avoid wrong detection create rectangle at region
+%center the area of interest for the filter
+
+[r c m]=size(po);%to get point x
+x1=r/2;
+y1=c/3;
+
+row=[x1 x1+200 x1+200 x1];
+col=[y1 y1 y1+40 y1+40];
+BW=roipoly(po,row,col); % polynomial filter to adjust parameters
+figure('Name','polynomial filter image');
+imshow(BW);
+
+% multiply filter with region of interst
+k=po.*double(BW); 
+figure('Name','processed image');
+imshow(k);
+
+%select the stone that take 4 pixels or more
+M=bwareaopen(k,4);
+% [L,NUM] = bwlabel(BW,N) returns in NUM the number of connected objects
+%  found in BW.
+[ya number]=bwlabel(M); % labeling function to store data
+if(number>=1)
+    disp('Stone is Detected');
+else
+    disp('No Stone is detected');
+end
